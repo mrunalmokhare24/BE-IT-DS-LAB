@@ -1,0 +1,71 @@
+import java.io.*;
+import java.util.*;
+
+class TokenRing {
+    public static void main(String args[]) throws Throwable {
+        Scanner scan = new Scanner(System.in);
+
+        System.out.println("Enter the number of nodes:");
+        int n = scan.nextInt(); // Number of nodes in the ring
+        int token = 0; // Initial token position
+        int ch = 0, flag = 0;
+
+        // Display the nodes forming the ring
+        System.out.print("Ring topology: ");
+        for (int i = 0; i < n; i++) {
+            System.out.print(i + " ");
+        }
+        System.out.println();
+
+        do {
+            try {
+                System.out.println("\nEnter sender:");
+                int sender = scan.nextInt();
+
+                System.out.println("Enter receiver:");
+                int receiver = scan.nextInt();
+
+                System.out.println("Enter Data:");
+                int data = scan.nextInt();
+
+                // Token passing process
+                System.out.print("Token passing: ");
+                for (int i = token, j = token; (i % n) != sender; i++, j = (j + 1) % n) {
+                    System.out.print(" " + j + "->");
+                }
+                System.out.println(" " + sender);
+
+                System.out.println("Sender " + sender + " sending data: " + data);
+
+                // Forwarding the data through intermediate nodes
+                for (int i = (sender + 1) % n; i != receiver; i = (i + 1) % n) {
+                    System.out.println("Data " + data + " forwarded by " + i);
+                }
+
+                System.out.println("Receiver " + receiver + " received data: " + data + "\n");
+
+                // Update token position
+                token = sender;
+
+                // Asking user if they want to send again
+                do {
+                    System.out.print("Do you want to send again? Enter 1 for Yes and 0 for No: ");
+                    ch = scan.nextInt();
+
+                    if (ch != 1 && ch != 0) {
+                        flag = 1;
+                        System.out.println("Invalid Input! Please enter 1 or 0.");
+                    } else {
+                        flag = 0;
+                    }
+                } while (flag == 1);
+
+            } catch (InputMismatchException e) {
+                System.out.println("Invalid Input! Please enter a valid number.");
+                scan.next(); // Clear buffer
+            }
+        } while (ch == 1);
+
+        scan.close();
+    }
+}
