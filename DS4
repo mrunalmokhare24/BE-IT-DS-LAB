@@ -1,0 +1,217 @@
+server.py
+
+
+
+from functools import reduce
+from dateutil import parser
+import threading
+import datetime
+import socket
+import time
+
+# Data structure to store client address and clock data
+client_data = {}
+
+# Nested thread function to receive clock time from a connected client
+def startReceivingClockTime(connector, address):
+    while True:
+        try:
+            # Receive clock time
+            clock_time_string = connector.recv(1024).decode()
+            clock_time = parser.parse(clock_time_string)
+            clock_time_diff = datetime.datetime.now() - clock_time
+
+            client_data[address] = {
+                "clock time": clock_time,
+                "time difference": clock_time_diff,
+                "connector": connector
+            }
+
+            print(f"Client Data updated with: {str(address)}\n")
+
+        except Exception as e:
+            print(f"Error receiving time from {address}: {e}")
+            break
+
+        time.sleep(5)
+
+# Master thread function to accept clients over a given port
+def startConnecting(master_server):
+    while True:
+        # Accept a client connection
+        master_slave_connector, addr = master_server.accept()
+        slave_address = f"{addr[0]}:{addr[1]}"
+        print(f"{slave_address} connected successfully.")
+
+        current_thread = threading.Thread(target=startReceivingClockTime, args=(master_slave_connector, slave_address))
+        current_thread.start()
+
+# Function to calculate average clock difference
+def getAverageClockDiff():
+    if not client_data:
+        return datetime.timedelta(0, 0)  # No clients, return zero difference
+
+    time_difference_list = [client["time difference"] for client in client_data.values()]
+    sum_of_clock_difference = reduce(lambda x, y: x + y, time_difference_list, datetime.timedelta(0, 0))
+    average_clock_difference = sum_of_clock_difference / len(client_data)
+
+    return average_clock_difference
+
+# Master sync thread function to synchronize all clocks
+def synchronizeAllClocks():
+    while True:
+        print("\nNew synchronization cycle started.")
+        print(f"Number of clients to be synchronized: {len(client_data)}")
+
+        if client_data:
+            average_clock_difference = getAverageClockDiff()
+            for client_addr, client in client_data.items():
+                try:
+                    synchronized_time = datetime.datetime.now() + average_clock_difference
+                    client["connector"].send(str(synchronized_time).encode())
+                    print(f"Sent synchronized time to {client_addr}")
+                except Exception as e:
+                    print(f"Error sending synchronized time to {client_addr}: {e}")
+        else:
+            print("No client data. Synchronization not applicable.")
+
+        print("\n")
+        time.sleep(5)
+
+# Function to start the Clock Server / Master Node
+def initiateClockServer(port=8080):
+    master_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    master_server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    print("Socket at master node created successfully\n")
+
+    master_server.bind(("", port))
+    master_server.listen(10)
+    print("Clock server started...\n")
+
+    # Start accepting client connections
+    print("Starting to make connections...\n")
+    master_thread = threading.Thread(target=startConnecting, args=(master_server,))
+    master_thread.start()
+
+    # Start synchronization
+    print("Starting synchronization parallelly...\n")
+    sync_thread = threading.Thread(target=synchronizeAllClocks, args=())
+    sync_thread.start()
+
+# Driver function
+if __name__ == "__main__":
+    initiateClockServer(port=8080)
+
+
+Client.py
+
+from dateutil import parser
+import threading
+import datetime
+import socket
+import time
+
+# Client thread function to send the current system time to the server
+def startSendingTime(slave_client):
+    while True:
+        try:
+            slave_client.send(str(datetime.datetime.now()).encode())
+            print("Recent time sent successfully\n")
+        except Exception as e:
+            print(f"Error sending time to server: {e}")
+            break
+        time.sleep(5)
+
+# Client thread function to receive synchronized time from the server
+def startReceivingTime(slave_client):
+    while True:
+        try:
+            synchronized_time = parser.parse(slave_client.recv(1024).decode())
+            print(f"Synchronized time at the client: {synchronized_time}\n")
+        except Exception as e:
+            print(f"Error receiving synchronized time: {e}")
+            break
+
+# Function to start the Slave Client
+def initiateSlaveClient(port=8080):
+    slave_client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    try:
+        # Connect to the Clock Server (Master Node)
+        slave_client.connect(("127.0.0.1", port))
+
+    except Exception as e:
+        print(f"Error connecting to server: {e}")
+        return
+
+    # Start sending time to server
+    print("Starting to send time to server...\n")
+    send_time_thread = threading.Thread(target=startSendingTime, args=(slave_client,))
+    send_time_thread.start()
+
+    # Start receiving synchronized time from server
+    print("Starting to receive synchronized time from server...\n")
+    receive_time_thread = threading.Thread(target=startReceivingTime, args=(slave_client,))
+    receive_time_thread.start()
+
+# Driver function
+if __name__ == "__main__":
+    initiateSlaveClient(port=8080)
+
+
+
+
+-----------
+Client 1
+
+PS D: \DS LA8S> LcJ LA94
+PS D: \DS LABS\LAB4› p\ t hon c lient .  y
+Smarting to send tine to server...
+Starting to receive sync hroni zed time from server...
+
+Recent time sent sucressfully
+
+Synchronized time ai she client: 2025-03-25 16:20:4d.67033G
+
+
+Client 2
+PS  D : \DS LABS7 c c1 L?B4
+PS D : \DS LABS\LAB4› ¿, I hon c ient . g}
+Starting to send time to server...
+
+Start ing to receive synchroni zed zine mom server...
+
+Rerent time sent successfully
+
+Synchronized time at the client: 2025-03-25 l6:20:56.676175
+
+
+Client 3
+PS D: \DS LABS› crJ LAB4
+PS D: \DS LABS\LAB4›	tlir!n  client .py
+Start i ng to send tine to server...
+Start ing to receive synchroni zed time mom server...
+
+Recent time sent successfully
+
+Synchronized time at the client: 2025-03-25 l6:21:06.685251
+ 
+Client 4
+PS D: ODS LABS› r‹1 LAB4
+PS D: \DS LABS\LAB4› ry’Ll r n c 1'end . py
+Siant rug to send t ice	to senven ...
+
+Smarting to receive synchronized time from server...
+Recent time sent successful Iy
+
+
+Synchronized time at the client: 2025-03-25 16:21:16.654516
+
+
+Server
+
+Fee •  synchnoni zation cycle slanted .
+f4umDer of clients to be synchronized: 4 Sent synchronized time to 127.0.0.1:55773 Sent synchronized time to 127.0.0.1:55774 Sent synchronized time to 127.0.0.1:55779 Sent synchronized time to 127.0.0.1:55780
+
+
+Client Data updated with: 127.0.0.1:55780 Client Data updated with: 127.0.0.1:55773 Client Data updated with: 127.0.0.1:55779 Client Data updated with: 127.0.0.1:55774
